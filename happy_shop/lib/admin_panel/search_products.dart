@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:happy_shop/admin_panel/edit_product.dart';
 import 'package:happy_shop/screens/Image_Detail_Screen.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchProducts extends StatefulWidget {
   @override
-  _SearchScreenState createState() => _SearchScreenState();
+  _SearchProductsState createState() => _SearchProductsState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchProductsState extends State<SearchProducts> {
   TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _products = [];
   bool _loading = false;
@@ -84,21 +86,24 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  void _toggleFavorite(Map<String, dynamic> item) async {
-    setState(() {
-      item['favorite'] = !(item['favorite'] ?? false);
-    });
-
-    final response = await Supabase.instance.client
-        .from('products')
-        .update({'favorite': item['favorite']})
-        .eq('id', item['id']);
-
-    if (response.error != null) {
-      print('Error updating favorite: ${response.error!.message}');
-    }
+  void _onEditProductClick(dynamic product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProductScreen(
+          product: product,
+          onProductUpdated: (Map<String, dynamic> updatedProduct) {
+            setState(() {
+              int index = _products.indexWhere((p) => p['id'] == updatedProduct['id']);
+              if (index != -1) {
+                _products[index] = updatedProduct;
+              }
+            });
+          },
+        ),
+      ),
+    );
   }
-
   Widget _buildRatingStars(double rating) {
     return Row(
       children: List.generate(5, (index) {
@@ -243,13 +248,10 @@ class _SearchScreenState extends State<SearchScreen> {
                             top: 8,
                             right: 8,
                             child: IconButton(
-                              icon: Icon(
-                                product['favorite'] == true
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                color: Colors.red,
-                              ),
-                              onPressed: () => _toggleFavorite(product),
+                              icon: Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => {
+                              _onEditProductClick(product)
+                            },
                             ),
                           ),
                         ],
@@ -261,9 +263,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
+                      Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
@@ -271,12 +271,12 @@ class _SearchScreenState extends State<SearchScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.red,
+                                fontSize: 12,
                               ),
                             ),
                             _buildRatingStars(rating),
                           ],
                         ),
-                      ),
                       Padding(
                         padding: EdgeInsets.only(left: 8, top: 4),
                         child: Text(
@@ -302,4 +302,3 @@ extension on PostgrestList {
 
   Iterable get data => nonNulls;
 }
-

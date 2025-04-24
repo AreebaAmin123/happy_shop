@@ -23,10 +23,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<String> countries = ['USA', 'India', 'Canada', 'Pakistan', 'London'];
   List<String> cities = [];
   bool isCountrySelected = false;
+  bool isCitySelected = false;
 
   Future<void> _submitOrder() async {
     if (_formKey.currentState!.validate()) {
-
       if (country.isEmpty || city.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Please select both country and city')),
@@ -60,21 +60,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             };
           }).toList();
 
-          final response = await Supabase.instance.client.from('orders').insert([
-            {
-              'user_id': user.id,
-              'name': name,
-              'phone_number': phoneNumber,
-              'country': country,
-              'city': city,
-              'complete_address': completeAddress,
-              'is_cash_on_delivery': isCashOnDelivery,
-              'order_date': DateTime.now().toIso8601String(),
-              'cart_items': formattedCartItems,
-              'status': 'pending',
-              'total_amount': totalAmount,
-            }
-          ]);
+          final response = await Supabase.instance.client.from('orders').insert([{
+            'user_id': user.id,
+            'name': name,
+            'phone_number': phoneNumber,
+            'country': country,
+            'city': city,
+            'complete_address': completeAddress,
+            'is_cash_on_delivery': isCashOnDelivery,
+            'order_date': DateTime.now().toIso8601String(),
+            'cart_items': formattedCartItems,
+            'status': 'Pending',
+            'total_amount': totalAmount,
+          }]);
 
           if (response == null) {
             print("Order placed successfully");
@@ -98,25 +96,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() {
         isLoading = false;
       });
-    }
-  }
-
-  void placeOrder() async {
-
-    bool orderPlaced = true;
-
-    if (orderPlaced) {
-
-      setState(() {
-        var cartItems;
-        cartItems.clear();
-      });
-
-      var cartItems;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => CheckoutScreen(cartItems: cartItems,)),
-      );
     }
   }
 
@@ -144,11 +123,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   List<String> _getCitiesBasedOnCountry(String countryName) {
-    if (countryName == 'USA') return ['New York', 'Los Angeles', 'Chicago'];
-    if (countryName == 'India') return ['Mumbai', 'Delhi', 'Bangalore'];
-    if (countryName == 'Canada') return ['Toronto', 'Vancouver', 'Montreal'];
-    if (countryName == 'Pakistan') return ['Lahore', 'Karachi', 'Islamabad'];
-    if (countryName == 'London') return ['Greenwich', 'Islington', 'Bromley'];
+    if (countryName == 'USA') return ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego'];
+    if (countryName == 'India') return ['Delhi', 'Mumbai', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Ahmedabad'];
+    if (countryName == 'Canada') return ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton', 'Quebec City', 'Winnipeg', 'Hamilton'];
+    if (countryName == 'Pakistan') return ['Lahore','Sahiwal' ,'Karachi', 'Islamabad','Faisalabad','Sargodha','Multan','Sialkot'];
+    if (countryName == 'London') return ['Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton', 'Quebec City', 'Winnipeg'];
     return [];
   }
 
@@ -170,6 +149,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               onTap: () {
                 setState(() {
                   city = cityName;
+                  isCitySelected = true;
                 });
                 Navigator.pop(context);
               },
@@ -183,7 +163,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Checkout')),
+      appBar: AppBar(title: Center(child: Text('Checkout'))),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -191,10 +171,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Name:'),
               TextFormField(
-                decoration: InputDecoration(hintText: 'Enter your name'),
+                decoration: InputDecoration(
+                  hintText: 'Enter your name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.blue),
+                  ),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
@@ -205,10 +196,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   name = value;
                 },
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 20),
               Text('Phone Number:'),
               TextFormField(
-                decoration: InputDecoration(hintText: 'Enter your phone number'),
+                decoration: InputDecoration(
+                  hintText: 'Enter your phone number',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.blue),
+                  ),
+                ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty || value.length != 11) {
@@ -220,12 +221,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   phoneNumber = value;
                 },
               ),
+
               SizedBox(height: 16),
               Text('Country:'),
               GestureDetector(
                 onTap: _selectCountry,
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0,vertical: 9),
+                  padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 9),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8.0),
@@ -244,7 +246,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               GestureDetector(
                 onTap: _selectCity,
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.0,vertical: 9),
+                  padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 9),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8.0),
@@ -261,7 +263,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               SizedBox(height: 16),
               Text('Complete Address:'),
               TextFormField(
-                decoration: InputDecoration(hintText: 'Enter your complete address'),
+                decoration: InputDecoration(
+                  hintText: 'Enter your complete address',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(color: Colors.blue),
+                  ),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your address';
@@ -282,17 +294,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         isCashOnDelivery = value!;
                       });
                     },
+                    checkColor: Colors.white,
+                    activeColor: Colors.blue,
                   ),
                   Text('Cash on Delivery'),
                 ],
               ),
               SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _submitOrder,
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _submitOrder,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 23),
+                    backgroundColor: Colors.blue,
+                  ),
+                  child: Text(
+                    'Place Order',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
-                child: Text('Place Order'),
               ),
             ],
           ),
@@ -301,3 +324,4 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 }
+

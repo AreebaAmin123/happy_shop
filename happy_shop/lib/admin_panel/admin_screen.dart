@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:happy_shop/admin_panel/categories.dart';
 import 'package:happy_shop/admin_panel/orders_screen.dart';
 import 'package:happy_shop/admin_panel/product_screen.dart';
-import 'package:happy_shop/admin_panel/reviews_screen.dart';
+import 'package:happy_shop/admin_panel/rating_screen.dart';
 import 'package:happy_shop/admin_panel/users_screen.dart';
+import 'package:happy_shop/screens/auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminPanelScreen extends StatefulWidget {
@@ -11,18 +13,19 @@ class AdminPanelScreen extends StatefulWidget {
 }
 
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   int _userCount = 0;
   int _orderCount = 0;
-  int _completeOrders = 0;
-  int _pendingOrders = 0;
+  int _CompleteOrders = 0;
+  int _PendingOrders = 0;
+  int _CancelledOrders = 0;
   int _totalProducts = 0;
   double _userPercentage = 0.0;
   double _orderPercentage = 0.0;
-  double _completedOrdersPercentage = 0.0;
-  double _pendingPercentage = 0.0;
+  double _CompletedOrdersPercentage = 0.0;
+  double _PendingPercentage = 0.0;
+  double _CancelledPercentage = 0.0;
 
   @override
   void initState() {
@@ -35,87 +38,127 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     await fetchOrderCount();
     await fetchCompletedOrders();
     await fetchPendingOrders();
+    await fetchCancelledOrders();
     await fetchTotalProducts();
   }
 
   Future<void> fetchUserCount() async {
     final response = await Supabase.instance.client
         .from('users')
-        .select('id')
         .select('*');
 
-    if (response.error == null) {
+    if (response != null) {
       setState(() {
-        _userCount = response.data.length;
-        _userPercentage = 10.5;
+        _userCount = response.length;
+        _userPercentage = (_userCount > 0) ? 15.0 : 0.0;
       });
-    } else {
-      print('Error fetching user count: ${response.error?.message}');
     }
   }
 
   Future<void> fetchOrderCount() async {
     final response = await Supabase.instance.client
         .from('orders')
-        .select('id')
         .select('*');
 
-    if (response.error == null) {
+    if (response != null) {
       setState(() {
-        _orderCount = response.data.length;
-        _orderPercentage = 5.0;
+        _orderCount = response.length;
+        _orderPercentage = (_orderCount > 0) ? 10.0 : 0.0;
       });
-    } else {
-      print('Error fetching order count: ${response.error?.message}');
     }
   }
 
   Future<void> fetchCompletedOrders() async {
     final response = await Supabase.instance.client
         .from('orders')
-        .select('id')
-        .eq('status', 'completed')
-        .select('*');
+        .select('*')
+        .eq('status', 'Completed');
 
-    if (response.error == null) {
+    if (response != null) {
       setState(() {
-        _completeOrders = response.data.length;
-        _completedOrdersPercentage = 7.5;
+        _CompleteOrders = response.length;
+        _CompletedOrdersPercentage =
+        (_orderCount > 0) ? (_CompleteOrders / _orderCount) * 100 : 0.0;
       });
-    } else {
-      print('Error fetching completed orders: ${response.error?.message}');
     }
   }
 
   Future<void> fetchPendingOrders() async {
     final response = await Supabase.instance.client
         .from('orders')
-        .select('id')
-        .eq('status', 'pending')
-        .select('*');
+        .select('*')
+        .eq('status', 'Pending');
 
-    if (response.error == null) {
+    if (response != null) {
       setState(() {
-        _pendingOrders = response.data.length;
-        _pendingPercentage = 3.0;
+        _PendingOrders = response.length;
+        _PendingPercentage =
+        (_orderCount > 0) ? (_PendingOrders / _orderCount) * 100 : 0.0;
       });
-    } else {
-      print('Error fetching pending orders: ${response.error?.message}');
+    }
+  }
+
+  Future<void> fetchCancelledOrders() async {
+    final response = await Supabase.instance.client
+        .from('orders')
+        .select('*')
+        .eq('status', 'Cancelled');
+
+    if (response != null) {
+      setState(() {
+        _CancelledOrders = response.length;
+        _CancelledPercentage =
+        (_orderCount > 0) ? (_CancelledOrders / _orderCount) * 100 : 0.0;
+      });
     }
   }
 
   Future<void> fetchTotalProducts() async {
     final response = await Supabase.instance.client
         .from('products')
-        .select('id')
         .select('*');
 
-    if (response.error == null) {
+    if (response != null) {
       setState(() {
-        _totalProducts = response.data.length;
+        _totalProducts = response.length;
       });
-    } else {
-      print('Error fetching total products: ${response.error?.message}');
+    }
+  }
+
+  Future<void> _logout() async {
+    bool shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Are you sure?"),
+          content: Text("Do you really want to log out?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text("No"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text("Yes"),
+            ),
+          ],
+        );
+      },
+    ) ??
+        false;
+
+    if (shouldLogout) {
+      try {
+        await Supabase.instance.client.auth.signOut();
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => Auth()),
+              (route) => false,
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error logging out: $e')));
+      }
     }
   }
 
@@ -127,30 +170,37 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         title: Text('Admin Panel'),
         leading: IconButton(
           icon: Icon(Icons.menu),
-          onPressed: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
       drawer: _buildCustomDrawer(context),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Column(
-            children: [
-
-              _buildBox('Total Users', Icons.group, _userCount, _userPercentage, Colors.blue[50]),
-              _buildBox('Total Orders', Icons.shopping_cart, _orderCount, _orderPercentage, Colors.orange[50]),
-              _buildBox('Completed Orders', Icons.check_circle, _completeOrders, _completedOrdersPercentage, Colors.green[50]),
-              _buildBox('Pending Orders', Icons.hourglass_empty, _pendingOrders, _pendingPercentage, Colors.red[50]),
-              _buildBox('Total Products', Icons.inventory, _totalProducts, 0.0, Colors.purple[50]), // New box for products
-            ],
+      body: RefreshIndicator(
+        onRefresh: fetchData,
+        child: SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Center(
+            child: Column(
+              children: [
+                _buildBox('Total Users', Icons.group, _userCount,
+                    _userPercentage, Colors.blue[50]),
+                _buildBox('Total Orders', Icons.shopping_cart, _orderCount,
+                    _orderPercentage, Colors.orange[50]),
+                _buildBox('Completed Orders', Icons.check_circle,
+                    _CompleteOrders, _CompletedOrdersPercentage, Colors.green[50]),
+                _buildBox('Pending Orders', Icons.hourglass_empty,
+                    _PendingOrders, _PendingPercentage, Colors.red[50]),
+                _buildBox('Cancelled Orders', Icons.cancel, _CancelledOrders,
+                    _CancelledPercentage, Colors.red[50]),
+                _buildBox('Total Products', Icons.inventory, _totalProducts, 0.0,
+                    Colors.purple[50]),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-
 
   Widget _buildCustomDrawer(BuildContext context) {
     return Drawer(
@@ -166,47 +216,47 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               ),
               child: Text(
                 'Admin Panel',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
             ListTile(
               title: Text('Product'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProductsScreen()),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ProductsScreen()),
+              ),
             ),
             ListTile(
               title: Text('Orders'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => OrdersScreen()),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => OrdersScreen()),
+              ),
             ),
             ListTile(
-              title: Text('Reviews'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ReviewsScreen()),
-                );
-              },
+              title: Text('Categories'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CategoriesScreen()),
+              ),
             ),
             ListTile(
               title: Text('Users'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => UsersScreen()),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UsersScreen()),
+              ),
+            ),
+            ListTile(
+              title: Text('Rating'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => RatingScreen()),
+              ),
+            ),
+            ListTile(
+              title: Text('Logout'),
+              onTap: _logout,
             ),
           ],
         ),
@@ -214,7 +264,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
-  Widget _buildBox(String title, IconData icon, int count, double percentage, Color? color) {
+  Widget _buildBox(
+      String title, IconData icon, int count, double percentage, Color? color) {
     return Container(
       padding: EdgeInsets.all(8),
       margin: EdgeInsets.only(bottom: 16),
@@ -236,10 +287,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             children: [
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               SizedBox(width: 8),
               Icon(
@@ -270,10 +318,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           percentage > 0
               ? Text(
             '$percentage% up from past week',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.green,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.green),
           )
               : SizedBox.shrink(),
         ],
@@ -281,7 +326,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 }
-
 
 extension on PostgrestList {
   get error => null;

@@ -77,8 +77,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => CategoryDetailScreen(
-                              categoryName: category['name'],
-                              categoryImage: category['image_url'],
+                              category: category['name'],
                             ),
                           ),
                         );

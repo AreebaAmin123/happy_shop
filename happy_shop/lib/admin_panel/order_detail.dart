@@ -1,53 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class OrderDetailsScreen extends StatefulWidget {
-  final int orderId;
+class OrderDetailScreen extends StatefulWidget {
+  final dynamic order;
 
-  const OrderDetailsScreen({Key? key, required this.orderId}) : super(key: key);
+  OrderDetailScreen({required this.order});
 
   @override
-  _OrderDetailsScreenState createState() => _OrderDetailsScreenState();
+  _OrderDetailScreenState createState() => _OrderDetailScreenState();
 }
 
-class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
-  final SupabaseClient supabase = Supabase.instance.client;
-  dynamic order;
-  bool isLoading = true;
-  String errorMessage = '';
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  late dynamic _order;
+  late TextEditingController _statusController;
+  late TextEditingController _paymentStatusController;
 
   @override
   void initState() {
     super.initState();
-    fetchOrderDetails();
+    _order = widget.order;
+    _statusController = TextEditingController(text: _order['status']);
+    _paymentStatusController = TextEditingController(text: _order['payment_status']);
   }
 
+  Future<void> _updateOrderStatus() async {
+    String newStatus = _statusController.text;
+    String newPaymentStatus = newStatus == 'Complete' ? 'Complete' : _paymentStatusController.text;
 
-  Future<void> fetchOrderDetails() async {
-    try {
-      final response = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', widget.orderId)
-          .select('*');
-      if (response.error != null) {
-        throw response.error!.message;
-      }
+    final response = await _supabase
+        .from('orders')
+        .update({
+      'status': newStatus,
+      'payment_status': newPaymentStatus,
+    })
+        .eq('id', _order['id'])
+        .select('*');
 
-      if (response.data == null || response.data.isEmpty) {
-        throw 'Order not found';
-      }
-
+    if (response.error == null) {
       setState(() {
-        order = response.data;
-        isLoading = false;
+        _order['status'] = newStatus;
+        _order['payment_status'] = newPaymentStatus;
       });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = e.toString();
-      });
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order updated successfully')));
+    } else {
+      // Handle error
+      print("Error updating order: ${response.error?.message}");
     }
+  }
+
+  Future<void> _cancelOrder() async {
+    final response = await _supabase
+        .from('orders')
+        .update({
+      'status': 'Cancelled',
+      'payment_status': 'Cancelled',
+    })
+        .eq('id', _order['id'])
+        .select('*');
+
+    if (response.error == null) {
+      setState(() {
+        _order['status'] = 'Cancelled';
+        _order['payment_status'] = 'Cancelled';
+      });
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order cancelled successfully')));
+    } else {
+      // Handle error
+      print("Error cancelling order: ${response.error?.message}");
+    }
+  }
+
+  void _showStatusSelection(String type) {
+    List<String> options = ['Pending', 'Completed', 'Cancelled'];
+    String selectedValue = type == 'status' ? _statusController.text : _paymentStatusController.text;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return ListView.builder(
+          itemCount: options.length,
+          itemBuilder: (context, index) {
+            return ListTile(
+              title: Text(options[index]),
+              onTap: () {
+                setState(() {
+                  if (type == 'status') {
+                    _statusController.text = options[index];
+                  } else {
+                    _paymentStatusController.text = options[index];
+                  }
+                });
+                Navigator.pop(context);
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -56,61 +108,49 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       appBar: AppBar(
         title: Text('Order Details'),
       ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : errorMessage.isNotEmpty
-          ? Center(child: Text('Error: $errorMessage', style: TextStyle(color: Colors.red)))
-          : order == null
-          ? Center(child: Text('Order not found'))
-          : Card(
-        margin: EdgeInsets.all(10),
-        child: ListTile(
-          title: Text(
-            'Order ID: ${order['id']}',
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.w500),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('City: ${order['city']}'),
-              Text('Address: ${order['complete_address']}'),
-              Text('Order Date: ${order['order_date']}'),
-              Text(
-                'Cash on Delivery: ${order['cash_on_delivery'] == null ? 'Yes' : (order['cash_on_delivery'] ? 'Yes' : 'No')}',
-              ),
-              Text(
-                'Status: ${order['status']}',
-                style: TextStyle(color: Colors.green),
-              ),
-
-              Text('Cart Items:'),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: List.generate(
-                  order['cart_items'].length,
-                      (cartItemIndex) {
-                    var item = order['cart_items'][cartItemIndex];
-                    return ListTile(
-                      title: Text(
-                        'Product: ${item['item_name']} | Quantity: ${item['item_quantity']} '
-                            '| Size: ${item['item_size']} | Color: ${item['item_color']} '
-                            '| Price: ${item['item_price']} ',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    );
-                  },
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Name: ${_order['name']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Phone: ${_order['phone_number']}'),
+            Text('Address: ${_order['complete_address']}'),
+            Text('Cart Items: ${_order['cart_items']}'),
+            Text('Total Amount: \$${_order['total_amount']}'),
+            GestureDetector(
+              onTap: () => _showStatusSelection('status'),
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: _statusController,
+                  decoration: InputDecoration(labelText: 'Status'),
                 ),
               ),
-              Text('Delivery Charges: 250'),
-              Text(
-                'Total Amount: ${order['total_amount']}',
-                style: TextStyle(color: Colors.red),
+            ),
+            GestureDetector(
+              onTap: () => _showStatusSelection('payment_status'),
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: _paymentStatusController,
+                  decoration: InputDecoration(labelText: 'Payment Status'),
+                ),
               ),
-            ],
-          ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _updateOrderStatus,
+              child: Text('Update Order'),
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _cancelOrder,
+              child: Text('Cancel Order',
+              style: TextStyle(
+                color: Colors.white
+              ),),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            ),
+          ],
         ),
       ),
     );

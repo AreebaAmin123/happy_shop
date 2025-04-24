@@ -44,7 +44,10 @@ class OrderScreen extends StatelessWidget {
                   );
                 },
 
-                child: Text('Back to Home'),
+                child: Text('Back to Home',
+                style: TextStyle(
+                  color: Colors.white
+                ),),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: EdgeInsets.symmetric(vertical: 10, horizontal: 25),

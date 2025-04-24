@@ -18,6 +18,8 @@ class AuthState extends State<Auth> {
 
   bool _isPasswordVisible = false;
 
+  final String adminEmail = 'aqsaaminswl123@gmail.com';
+
   @override
   void initState() {
     super.initState();
@@ -48,10 +50,7 @@ class AuthState extends State<Auth> {
     return null;
   }
 
-
-  final String adminEmail = 'aqsaaminswl123@gmail.com';
-
-  void signup() async {
+  Future<void> signup() async {
     if (!formKey.currentState!.validate()) return;
 
     try {
@@ -63,16 +62,11 @@ class AuthState extends State<Auth> {
 
       SmartDialog.dismiss();
 
-      if (response.error != null) {
-        throw response.error!.message;
-      }
-
       if (response.user == null) {
         throw 'User is null';
       }
 
       await _saveUserData(response.user!);
-
 
       if (response.user!.email == adminEmail) {
         Navigator.pushAndRemoveUntil(
@@ -81,7 +75,6 @@ class AuthState extends State<Auth> {
               (Route<dynamic> route) => false,
         );
       } else {
-
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (BuildContext context) => HomeScreen()),
@@ -106,12 +99,8 @@ class AuthState extends State<Auth> {
       );
       SmartDialog.dismiss();
 
-      if (response.error != null) {
-        throw response.error!.message;
-      }
-
       if (response.user == null) {
-        throw 'User is null';
+        throw 'No user found. Please sign up first.';
       }
 
       await _saveUserData(response.user!);
@@ -131,20 +120,32 @@ class AuthState extends State<Auth> {
       }
     } catch (e) {
       SmartDialog.dismiss();
-      debugPrint('Error in login => $e');
-      SmartDialog.showToast('Error: $e');
+
+      String errorMessage = e.toString();
+
+      if (errorMessage.contains('Invalid login credentials')) {
+        errorMessage = 'No account found. Please sign up first.';
+      }
+
+      debugPrint('Error in login => $errorMessage');
+      SmartDialog.showToast('Error: $errorMessage');
     }
   }
 
   Future<void> _saveUserData(User user) async {
     try {
+      final createdAt = DateTime.now().toIso8601String();
+      String role = (user.email == adminEmail) ? 'admin' : 'user';
+
       final response = await Supabase.instance.client.from('users').upsert({
         'id': user.id,
         'email': user.email,
-      }).execute();
+        'role': role,
+        'created_at': createdAt,
+      }).select('*');
 
-      if (response.error != null) {
-        throw response.error!.message;
+      if (response.isEmpty) {
+        debugPrint('User data saved, but no rows returned.');
       }
     } catch (e) {
       debugPrint('Error saving user data => $e');
@@ -165,27 +166,41 @@ class AuthState extends State<Auth> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Email Text Field
+                // Email
                 TextFormField(
                   controller: emailCon,
                   validator: emailValidator,
                   decoration: const InputDecoration(
                     labelText: 'Email',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    floatingLabelStyle: TextStyle(color: Colors.blue),
                     border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    ),
                   ),
                 ),
+
                 const SizedBox(height: 10),
 
+                // Password Field
                 TextFormField(
                   controller: passwordCon,
                   validator: passwordValidator,
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    labelStyle: const TextStyle(color: Colors.grey),
+                    floatingLabelStyle: const TextStyle(color: Colors.blue),
                     border: const OutlineInputBorder(),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -195,16 +210,30 @@ class AuthState extends State<Auth> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 20),
+
 
                 ElevatedButton(
                   onPressed: signup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  ),
                   child: const Text('Sign Up'),
                 ),
                 const SizedBox(height: 10),
 
                 ElevatedButton(
                   onPressed: _login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  ),
                   child: const Text('Login'),
                 ),
               ],
@@ -215,14 +244,3 @@ class AuthState extends State<Auth> {
     );
   }
 }
-
-
-extension on AuthResponse {
-  get error => null;
-}
-
-extension on PostgrestFilterBuilder {
-  execute() {}
-}
-
-

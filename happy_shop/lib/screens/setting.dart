@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:happy_shop/screens/auth.dart';
 import 'package:happy_shop/screens/cart.dart';
 import 'package:happy_shop/screens/favourite.dart';
 import 'package:happy_shop/screens/orders_screen.dart';
@@ -27,6 +28,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Future<void> _logout() async {
+    bool shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Are you sure?"),
+          content: Text("Do you really want to log out?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: Text("No"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: Text("Yes"),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (shouldLogout) {
+      try {
+        await supabase.auth.signOut();
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (BuildContext context) => Auth()),
+              (Route<dynamic> route) => false,
+        );
+      } catch (e) {
+        print('Error logging out: $e');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error logging out: $e')));
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +84,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Settings'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.exit_to_app),
+            onPressed: _logout,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -50,7 +98,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Circle Avatar
               CircleAvatar(
                 radius: 50,
                 backgroundColor: Colors.blueAccent,
@@ -60,20 +107,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               SizedBox(height: 16),
-              // Email and Name Display
               Text(
                 _user!.email!,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
               ),
               SizedBox(height: 25),
 
-
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: InfoBox(label: 'Email', value: _user!.email!),
               ),
-
-              // Additional Info
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: InfoBox(label: 'Country', value: 'Pakistan'),
@@ -87,9 +130,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: InfoBox(label: 'Currency', value: 'PKR'),
               ),
 
-
               SizedBox(height: 32),
-              _navigationBox(context, 'Favorites', FavouriteScreen()),
+              _navigationBox(context, 'Favourites', FavouriteScreen()),
               _navigationBox(context, 'Cart', CartScreen()),
               _navigationBox(context, 'Orders', OrdersScreen()),
             ],
@@ -154,6 +196,4 @@ class InfoBox extends StatelessWidget {
     );
   }
 }
-
-
 

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:happy_shop/screens/auth.dart';
-import 'package:happy_shop/screens/home_screen.dart';
 import 'package:happy_shop/screens/splash.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -23,27 +21,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Intro to Supabase',
       builder: FlutterSmartDialog.init(),
-      home: FutureBuilder<bool>(
-        future: _checkAuthStatus(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Splash();
-          } else if (snapshot.hasData && snapshot.data == true) {
-
-            return HomeScreen();
-          } else {
-
-            return Auth();
-          }
-        },
-      ),
+      home: Splash(), // Start with the splash screen
     );
-  }
-
-
-  Future<bool> _checkAuthStatus() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    return user != null;
   }
 }
 

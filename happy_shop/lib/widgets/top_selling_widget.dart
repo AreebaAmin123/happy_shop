@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:happy_shop/screens/categories.dart';
-import 'package:happy_shop/screens/image_detail_screen.dart'; // Import ImageDetailScreen
+import 'package:happy_shop/screens/image_detail_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final supabase = Supabase.instance.client;
@@ -22,30 +22,41 @@ class _TopSellingWidget extends State<TopSellingWidget> {
     _fetchTopSellingData();
   }
 
-
   Future<void> _fetchTopSellingData() async {
     try {
       final response = await supabase
           .from('products')
-          .select('id, category, name, image_url, description, price, favorite')
-          .select('*');
+          .select('id, category, name, image_url, description, price, favorite');
 
-      if (response.error != null) {
-        throw Exception('Error fetching data: ${response.error!.message}');
-      }
-
+      final List<Map<String, dynamic>> rawProducts = List<Map<String, dynamic>>.from(response);
 
       Map<String, Map<String, dynamic>> categoryMap = {};
 
-
-      for (var product in response.data) {
+      for (var product in rawProducts) {
         String category = product['category'];
+
+        final ratingResponse = await supabase
+            .from('product_ratings')
+            .select('rating')
+            .eq('product_id', product['id']);
+
+        final ratings = List<Map<String, dynamic>>.from(ratingResponse);
+
+        // 🔧 FIX: safely cast to double
+        final ratingValues = ratings
+            .map((r) => ((r['rating'] ?? 0) as num).toDouble())
+            .toList();
+
+        final avgRating = ratingValues.isNotEmpty
+            ? ratingValues.reduce((a, b) => a + b) / ratingValues.length
+            : 0.0;
+
+        product['rating'] = avgRating;
 
         if (!categoryMap.containsKey(category)) {
           categoryMap[category] = product;
         }
       }
-
 
       setState(() {
         products = categoryMap.values.toList();
@@ -58,7 +69,6 @@ class _TopSellingWidget extends State<TopSellingWidget> {
       });
     }
   }
-
 
   void _toggleFavorite(Map<String, dynamic> item) async {
     setState(() {
@@ -80,7 +90,7 @@ class _TopSellingWidget extends State<TopSellingWidget> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -93,9 +103,10 @@ class _TopSellingWidget extends State<TopSellingWidget> {
               ),
               GestureDetector(
                 onTap: () {
-                   Navigator.push(
-                       context, MaterialPageRoute(
-                       builder: (context) => CategoriesScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => CategoriesScreen()),
+                  );
                 },
                 child: Text(
                   'See All',
@@ -110,7 +121,7 @@ class _TopSellingWidget extends State<TopSellingWidget> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 6.0),
           child: isLoading
               ? CircularProgressIndicator()
               : GridView.builder(
@@ -118,9 +129,9 @@ class _TopSellingWidget extends State<TopSellingWidget> {
             physics: NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 10.0,
-              mainAxisSpacing: 10.0,
-              childAspectRatio: (MediaQuery.of(context).size.width / 2) / 520,
+              crossAxisSpacing: 1.0,
+              mainAxisSpacing: 1.0,
+              childAspectRatio: (MediaQuery.of(context).size.width / 2) / 340,
             ),
             itemCount: products.length,
             itemBuilder: (context, index) {
@@ -146,11 +157,16 @@ class _TopSellingWidget extends State<TopSellingWidget> {
                       children: [
                         Stack(
                           children: [
-                            Image.network(
-                              item['image_url'],
-                              height: 350,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
+                            ClipRRect(
+                              borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(8)),
+                              child: Image.network(
+                                item['image_url'] ??
+                                    'https://via.placeholder.com/150',
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                             Positioned(
                               top: 8,
@@ -179,16 +195,20 @@ class _TopSellingWidget extends State<TopSellingWidget> {
                           children: [
                             Text(
                               'PKR ${item['price']}',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
                             ),
-                            SizedBox(width: 10),
-                            _buildRatingStars(item['rating']),
+                            _buildRedBorderedStars(
+                                (item['rating'] ?? 0.0).toDouble()),
                           ],
                         ),
                         Padding(
-                          padding: EdgeInsets.only(left: 8),
+                          padding:
+                          const EdgeInsets.only(left: 8, top: 4, bottom: 4),
                           child: Text(
-                            item['description'],
+                            item['description'] ?? '',
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
                           ),
@@ -205,24 +225,18 @@ class _TopSellingWidget extends State<TopSellingWidget> {
     );
   }
 
-  Widget _buildRatingStars(double rating) {
-    int fullStars = rating.floor();
-    int emptyStars = 5 - fullStars;
-
-    List<Widget> stars = [];
-    for (int i = 0; i < fullStars; i++) {
-      stars.add(Icon(Icons.star, color: Colors.deepOrange, size: 18));
-    }
-    for (int i = 0; i < emptyStars; i++) {
-      stars.add(Icon(Icons.star_border, color: Colors.deepOrange, size: 18));
-    }
-    return Row(children: stars);
+  Widget _buildRedBorderedStars(double rating) {
+    return Row(
+      children: List.generate(5, (index) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.star_border, color: Colors.red, size: 14),
+            if (index < rating.floor())
+              Icon(Icons.star, color: Colors.red, size: 14),
+          ],
+        );
+      }),
+    );
   }
 }
-
-extension on PostgrestList {
-  get error => null;
-
-  Iterable get data => nonNulls;
-}
-

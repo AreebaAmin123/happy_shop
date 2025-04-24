@@ -9,6 +9,7 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> cartItems = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -25,15 +26,21 @@ class _CartScreenState extends State<CartScreen> {
           .select('*')
           .eq('user_id', user.id);
 
-      if (response.error == null) {
+      if (mounted) {
         setState(() {
-          cartItems = List<Map<String, dynamic>>.from(response.data);
+          if (response.error == null) {
+            cartItems = List<Map<String, dynamic>>.from(response.data);
+          } else {
+            print('Error fetching cart items: ${response.error?.message}');
+          }
+          isLoading = false;
         });
-      } else {
-        print('Error fetching cart items: ${response.error?.message}');
       }
     } else {
       print('No user logged in');
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -74,13 +81,8 @@ class _CartScreenState extends State<CartScreen> {
     final user = Supabase.instance.client.auth.currentUser;
     bool orderPlaced = true;
 
-    if (orderPlaced) {
-
-      if (user != null) {
-
-        await Supabase.instance.client.from('cart').delete().eq('user_id', user.id);
-      }
-
+    if (orderPlaced && user != null) {
+      await Supabase.instance.client.from('cart').delete().eq('user_id', user.id);
 
       Navigator.pushReplacement(
         context,
@@ -93,13 +95,16 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Your Cart')),
-      body: cartItems.isEmpty
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : cartItems.isEmpty
           ? Center(child: Text('Your cart is empty'))
           : SingleChildScrollView(
         child: Column(
           children: [
             ListView.builder(
               shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
               itemCount: cartItems.length,
               itemBuilder: (context, index) {
                 final cartItem = cartItems[index];
@@ -117,9 +122,7 @@ class _CartScreenState extends State<CartScreen> {
                     subtitle: Text('PKR ${cartItem['price']} + 150 Delivery Charge'),
                     trailing: IconButton(
                       icon: Icon(Icons.remove_circle, color: Colors.red),
-                      onPressed: () {
-                        removeFromCart(cartItem['id']);
-                      },
+                      onPressed: () => removeFromCart(cartItem['id']),
                     ),
                   ),
                 );
@@ -144,25 +147,19 @@ class _CartScreenState extends State<CartScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text('Subtotal: PKR ${calculateSubtotal()}',
-                        style: TextStyle(fontSize: 16),
-                    ),
+                        style: TextStyle(fontSize: 16)),
                     SizedBox(height: 8),
                     Text('Shipping Charges: PKR ${calculateShippingCharges()}',
-                        style: TextStyle(fontSize: 16),
-                    ),
+                        style: TextStyle(fontSize: 16)),
                     SizedBox(height: 8),
                     Divider(),
                     SizedBox(height: 8),
                     Text('Total: PKR ${calculateTotal()}',
                         style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold),
-                    ),
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     SizedBox(height: 10),
                     ElevatedButton(
-                      onPressed: () {
-                        placeOrder();
-                      },
+                      onPressed: placeOrder,
                       child: Text('Checkout'),
                     ),
                   ],
